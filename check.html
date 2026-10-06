@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>فحص PWA</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#111;color:#eee;line-height:1.7}
+h2{margin:18px 0 6px;font-size:17px}.r{padding:4px 8px;border-radius:6px;margin:3px 0;background:#1d1d24;word-break:break-all;font-size:14px}
+.ok{border-right:4px solid #22c55e}.no{border-right:4px solid #ef4444}.w{border-right:4px solid #f59e0b}a{color:#93c5fd}</style></head>
+<body><h1 style="font-size:20px">فحص PWA</h1>
+<h2>الملفات</h2><div id="f"></div>
+<h2>Service Worker</h2><div id="s"></div>
+<h2>Manifest</h2><div id="m"></div>
+<h2>التثبيت</h2><div id="i"></div>
+<p><a href="index.html">فتح التطبيق</a></p>
+<script>
+var FILES=['index.html','manifest.webmanifest','sw.js','storage.js','icon-192.png','icon-512.png','maskable-192.png','maskable-512.png','apple-touch-icon.png','favicon-32.png','check.html'];
+function row(id,ok,t){var d=document.createElement('div');d.className='r '+(ok===true?'ok':ok===false?'no':'w');d.textContent=(ok===true?'✓ ':ok===false?'✗ ':'! ')+t;document.getElementById(id).appendChild(d)}
+(async function(){
+ for(const f of FILES){try{const r=await fetch(f,{cache:'no-store'});row('f',r.ok,f+(r.ok?'':' ('+r.status+')'))}catch(e){row('f',false,f+' (تعذّر)')}}
+ if(!('serviceWorker'in navigator)){row('s',false,'المتصفح لا يدعم Service Worker')}
+ else{try{const reg=await navigator.serviceWorker.getRegistration('./');
+  if(!reg){row('s',false,'غير مسجّل — افتح index.html أولًا ثم أعد هذه الصفحة')}
+  else{const st=reg.active?'active':reg.installing?'installing':reg.waiting?'waiting':'?';row('s',st==='active','مسجّل، الحالة: '+st+' | scope: '+reg.scope);
+   row('s',!!navigator.serviceWorker.controller,navigator.serviceWorker.controller?'هذه الصفحة تحت تحكم SW':'هذه الصفحة غير متحكَّم بها بعد (أعد التحميل)');
+   const ks=await caches.keys();row('s',ks.length>0,'الكاش: '+(ks.join(', ')||'لا يوجد'));
+   try{const t=await (await fetch('sw.js',{cache:'no-store'})).text();row('s',true,'sw.js '+t.split('\n')[0].trim());row('s',/addEventListener\(\s*['"]fetch['"]/.test(t),'معالج fetch موجود')}catch(e){}}
+ }catch(e){row('s',false,'خطأ: '+e.message)}}
+ try{const mr=await fetch('manifest.webmanifest',{cache:'no-store'});const m=await mr.json();
+  row('m',true,'JSON صالح');
+  ['name','short_name','start_url','scope','display','lang','dir'].forEach(k=>row('m',!!m[k],k+': '+(m[k]||'مفقود')));
+  row('m',m.display==='standalone','display = standalone');
+  const ic=m.icons||[];row('m',ic.some(i=>/192/.test(i.sizes))&&ic.some(i=>/512/.test(i.sizes)),'أيقونات 192 و512');
+  row('m',ic.some(i=>i.purpose==='maskable'),'أيقونة maskable');
+  for(const i of ic){const ok=!/\//.test(i.src.replace(/^\.\//,''));try{const r=await fetch(i.src,{cache:'no-store'});row('m',r.ok&&ok,i.src+' '+i.sizes+' '+i.purpose+(ok?'':' (مسار فرعي!)'))}catch(e){row('m',false,i.src)}}
+  row('m',!!document.querySelector('link[rel=manifest]')||'info','ملاحظة: الربط الفعلي موجود في index.html')
+ }catch(e){row('m',false,'تعذّر قراءة manifest: '+e.message)}
+ var sa=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+ row('i',sa?true:'w',sa?'يعمل كتطبيق مثبّت':'يعمل داخل المتصفح (غير مثبّت)');
+ row('i',location.protocol==='https:'||location.hostname==='localhost','HTTPS: '+location.protocol);
+ addEventListener('beforeinstallprompt',function(){row('i',true,'المتصفح يعتبر التطبيق قابلًا للتثبيت')});
+})();
+</script></body></html>
